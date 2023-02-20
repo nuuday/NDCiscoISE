@@ -19,7 +19,7 @@ In order to install the module, follow the instructions below. The only dependen
 
 Clone the repo
 ```bash
-git clone https://github.com/???/NDCiscoISE.git
+git clone https://github.com/nuuday/NDCiscoISE.git
 ```
 Go to your project folder
 ```bash
