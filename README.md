@@ -166,4 +166,8 @@ You can add as many ids as you like in the list. The program will delete all of 
 
 This should cover how to use this module.
 
+## Author
+
+2023 Developed by Rune Johannesen @ NetDesign A/S
+
 ----
