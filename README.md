@@ -128,7 +128,8 @@ After PUT (edit) as above:
 
 Output of print will be (compressed, one line - I unpacked the JSON to make it easier to read):
 
-```[
+```
+[
     {'UpdatedFieldsList': {
         'updatedField': [
             {
