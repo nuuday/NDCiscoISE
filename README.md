@@ -168,6 +168,6 @@ This should cover how to use this module.
 
 ## Author
 
-2023 Developed by Rune Johannesen @ NetDesign A/S
+2023 Developed by [Rune Johannesen](https://github.com/cowm00) @ NetDesign A/S
 
 ----
