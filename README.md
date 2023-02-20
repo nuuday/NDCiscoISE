@@ -1,14 +1,14 @@
 # NetDesign Cisco ISE
 
-This program is meant to help users easily utilize the Cisco ISE API. It's written to run most requests asynchronous and get, update, or delete data with up to 30 concurrent sessions to the API while respecting the rate limit of 30 connections per second. You can also easily change the rate limit together with multiple other options to make it more versatile.
+This program is meant to help users easily utilize the Cisco ISE API. It's written to run most requests asynchronous and get, create, update, or delete data with up to 30 concurrent sessions to the API while respecting the rate limit of 30 connections per second. You can also easily change the rate limit together with multiple other options to make it more versatile.
 
 Normally when you get information from the Cisco ISE API you need to use pagination to make sure all data is returned. This program automatically checks if pagination is needed and uses it to collect a complete set of data and returns it to the user.
 
-You can still use filters if you want to get specific data from the API. It’s also possible to specify which API category you want to get, update, or delete data from. This is done so that most of the API can be used by a few functions in stead of writing a function for each API category and endpoint.
+You can still use filters if you want to get specific data from the API. It’s also possible to specify which API category you want to get, create, update, or delete data from. This is done so that most of the API can be used by a few functions in stead of writing a function for each API category and endpoint.
 
-There are some specific API requests, that will require its own function to get, update, or delete those data, but not all is included in the first version.
+There are some specific API requests, that will require its own function to get, create, update, or delete those data, but not all is included in the first version.
 
-* Technology stack: This code is meant to be imported and used to help get, update, or delete data on the Cisco ISE API. It’s intended as a module you can use to import in your production, and it’s written entirely in Python and only tested using Python 3.11.2
+* Technology stack: This code is meant to be imported and used to help get, create, update, or delete data on the Cisco ISE API. It’s intended as a module you can use to import in your production, and it’s written entirely in Python and only tested using Python 3.11.2
 * Status: This is the first version released.
 
 ## Installation
