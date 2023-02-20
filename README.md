@@ -128,7 +128,7 @@ After PUT (edit) as above:
 
 Output of print will be (compressed, one line - I unpacked the JSON to make it easier to read):
 
-[
+```[
     {'UpdatedFieldsList': {
         'updatedField': [
             {
@@ -143,7 +143,7 @@ Output of print will be (compressed, one line - I unpacked the JSON to make it e
             }
         ]
     }}
-]
+]```
 
 You must provide the full payload when using PUT. If you only want to update one value you can make use of PATCH which only takes the values you want to change. For networkdevicegroups PATCH is only supported in Cisco ISE >= 3.2. Remember to always check the API documentation provided by Cisco (https://developer.cisco.com/docs/identity-services-engine/latest).
 
