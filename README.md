@@ -172,4 +172,8 @@ This should cover how to use this module.
 
 2023 Developed by [Rune Johannesen](https://github.com/cowm00) @ NetDesign A/S
 
+## License
+
+This code is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
+
 ----
