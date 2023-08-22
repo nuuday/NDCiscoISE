@@ -123,7 +123,7 @@ class NDCiscoISE():
         
         endpointpayloads: (Required) A list of endpoint payloads to register.
 
-        ids example: [{\"endpoint1\": \"payload\"}, {\"endpoint2\": \"payload\"}, etc.]
+        endpointpayloads example: [{\"endpoint1\": \"payload\"}, {\"endpoint2\": \"payload\"}, etc.]
 
         NOTE: Full endpoint payload is required when registering.
 
