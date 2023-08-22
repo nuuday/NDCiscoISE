@@ -3,7 +3,7 @@
 # Developed by Rune Johannesen @ NetDesign A/S 2023
 
 from aiohttp import ClientSession, BasicAuth, TCPConnector
-from asyncio import gather, create_task, set_event_loop, set_event_loop_policy, sleep
+from asyncio import gather, set_event_loop, set_event_loop_policy, sleep
 from traceback import format_exc
 from sys import version_info, platform
 from json import dumps
@@ -93,28 +93,26 @@ class Req():
 
             Allowed methods: get, post, put, delete and patch
 
-            If there's no payload, just leave a blank string: ''
-            
             Example:
 
             [
-                ['GET', 'https://x.x.x.x:9060/ers/config/networkdevice', ''],
+                ['GET', 'https://x.x.x.x:9060/ers/config/networkdevice'],
                 ['POST', 'https://x.x.x.x:9060/ers/config/networkdevice', '{\"json\":\"payload\"}'],
                 [...]
             ]
         """
+        def check_payload(data: list) -> str:
+            try: return(dumps(data[2]))
+            except: return("")
         if not req_list:
             raise Exception("req_list cannot be empty, you must enter data to be processed.")
         if not req_list[0]:
             raise Exception("req_list cannot be empty, you must enter data to be processed.")
-        if len(req_list[0]) != 3:
-            raise Exception("req_list must contain lists with the data structure: [[method, url, payload], [...]]")
         resultsList: list = []
         DataPartitions: list = self.returnPartionedList(req_list)
         async with ClientSession(auth=BasicAuth(self._usr,self._psw), headers=self.headers, connector=TCPConnector(ssl=False)) as session:
             for partition in DataPartitions: # Process rate_limit amount of requests at the same time and sleep for 1.1 seconds
-                partitionTasks: list = [create_task(self.__req(url=data[1], session=session, method=data[0], payload=dumps(data[2]))) for data in partition]
-                results: list = await gather(*partitionTasks, return_exceptions=False)
+                results: list = await gather(*[self.__req(url=data[1], session=session, method=data[0], payload=check_payload(data)) for data in partition], return_exceptions=False)
                 for result in results:
                     resultsList.append(result)
                 await sleep(1.1)
