@@ -11,6 +11,13 @@ There are some specific API requests, that will require its own function to get,
 * Technology stack: This code is meant to be imported and used to help get, create, update, or delete data on the Cisco ISE API. It’s intended as a module you can use to import in your production, and it’s written entirely in Python and only tested using Python 3.11.2
 * Status: This is the first version released.
 
+**31-10-2023 Update:**
+After writing a program to a customer I decided to use my own program. In this project I found a lot of errors and bugs in the code I had made. Therefore I've changed a lot and added additional content and features. Here are a few mentions:
+1. Rewrote Req.py to better support the program.
+2. Better handling of async operations.
+3. Support for the swagger/Open API on Cisco ISE.
+4. Bulk operations now support XML payloads.
+
 ## Installation
 
 In order to install the module, follow the instructions below. The only dependency is: **aiohttp**
