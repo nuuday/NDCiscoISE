@@ -12,7 +12,7 @@ There are some specific API requests, that will require its own function to get,
 * Status: This is the first version released.
 
 **31-10-2023 Update:**
-After writing a program to a customer I decided to use my own program. In this project I found a lot of errors and bugs in the code I had made. Therefore I've changed a lot and added additional content and features. Here are a few mentions:
+After writing a program for a customer I decided to use my own program. In this project I found a lot of errors and bugs in the code I had made. Therefore I've changed a lot and added additional content and features. Here are a few mentions:
 1. Rewrote Req.py to better support the program.
 2. Better handling of async operations.
 3. Support for the swagger/Open API on Cisco ISE.
