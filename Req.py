@@ -1,119 +1,109 @@
-# -*- coding: utf-8 -*-
-
-# Developed by Rune Johannesen @ NetDesign A/S 2023
-
+# Developed by Rune Johannesen @2021-2023
 from aiohttp import ClientSession, BasicAuth, TCPConnector
-from asyncio import gather, set_event_loop, set_event_loop_policy, sleep
-from traceback import format_exc
-from sys import version_info, platform
+from asyncio import gather, sleep, create_task, Semaphore
+from typing import Union
 from json import dumps
+from os.path import splitext, basename
+from General_logger import setup_logger
+from traceback import format_exc
+
 
 class Req():
-    def __init__(self, username: str, password: str, headers: dict = None, timeout: object = None, rate_limit: int = 30) -> None:
+    def __init__(self, headers: dict = None, timeout: int = None, rate_limit: int = 2, use_ssl: bool = True, auth: str = "") -> None:
         """
-        Username: string (Required)
+        :headers: dict (Optional) Specify a custom header to use with your request. Default is {'Content-Type':'application/json','Accept':'application/json','cache-control':'no-cache'}
+        :timeout: integer (Optional) Set a timeout for your request. Default is 60 seconds
+        :rate_limit: integer (Optional) Change the rate limit to make the requests faster. Default is 2 requests per second
+        :use_ssl: boolean (Optional) Set to False if server certificate is not verifiable
+        :auth: string (Optional) If your request needs Basic Authentication, enter username and password with space comma space separator, example: auth=\"username , password\""""
+        self.__HTTP_ERR_MAP: dict = {400:'(400) Bad Request',401:'(401) Unauthorized',403:'(403) Forbidden',404:'(404) Not Found',405:'(405) Method Not Allowed',406:'(406) Not Acceptable',409:'(409) Conflict',415:'(415) Unsupported Media Type',422:'(422) Unprocessable Entity',429:'(429) Too many requests',500:'(500) Internal Server Error',501:'(501) Not Implemented',503:'(503) Service Unavailable'}
+        self.__HEADERS: dict = headers if headers else {'Content-Type': 'application/json', 'Accept': 'application/json', 'cache-control': 'no-cache'}
+        self.__TIMEOUT: int = timeout if timeout else 60
+        self.__RATE_LIMIT: int = rate_limit
+        self.__USE_SSL: bool = TCPConnector(verify_ssl=True) if use_ssl else TCPConnector(verify_ssl=False)
+        self.__AUTH: str = None
+        self.__LOGGER = setup_logger(splitext(basename(__file__))[0])
+        if auth:
+            try:
+                usernm,passwd = auth.split(" , ")
+                self.__AUTH: str = BasicAuth(usernm,passwd)
+            except: raise Exception("There was a problem with auth. You must separate the username and password with \" , \" (space comma space)")
 
-        Password: string (Required)
-    
-        Headers: dictionary (Optional) Default is {'Content-Type': 'application/json', 'Accept': 'application/json', 'cache-control': 'no-cache'}
-        
-        Timeout: object (Optional) Default is 60 seconds (1 minute)
-        
-        rate_limit: interger (Optional) Default is 30 requests per second
-        """
-        if version_info[0] == 3 and version_info[1] >= 8 and platform.startswith('win'):
-            from asyncio import ProactorEventLoop, WindowsSelectorEventLoopPolicy
-            set_event_loop(ProactorEventLoop())
-            set_event_loop_policy(WindowsSelectorEventLoopPolicy())
-        self._usr: str = username
-        self._psw: str = password
-        self.headers: dict = headers if headers else {'Content-Type': 'application/json', 'Accept': 'application/json', 'cache-control': 'no-cache'}
-        self.timeout: int = timeout if timeout else 60
-        self.rate_limit: int = rate_limit
-        self.HTTP_ERR_MAP: dict = {400: '(400) Bad Request',401: '(401) Unauthorized',403: '(403) Forbidden',404: '(404) Not Found',405: '(405) Method Not Allowed',406: '(406) Not Acceptable',409: '(409) Conflict',415: '(415) Unsupported Media Type',429: '(429) Too many requests',500: '(500) Internal Server Error',501: '(501) Not Implemented',503: '(503) Service Unavailable'}
-    
     def returnPartionedList(self, inputlist: list) -> list:
-        """Returns a list split into segments of rate_limit"""
-        return([inputlist[i:i + self.rate_limit] for i in range(0, len(inputlist), self.rate_limit)])
+        """Returns a list split into segments of self.RATE_LIMIT
+        :inputlist: list (Required) List of lists containing data to split into segments. Example: [[data],[data],[data],etc...]"""
+        return([inputlist[i:i + self.__RATE_LIMIT] for i in range(0, len(inputlist), self.__RATE_LIMIT)])
 
-    async def __req(self, url: str, session: ClientSession, method: str, payload: str, validate: bool = False) -> dict:
-        """
-        Custom request method. Will retry a request one time if the response is a server error.
-
-        url: URL to request data from.
-
-        session: Asynchronous aiohttp ClientSession class instance
-
-        method: Supported request methods: get, post, put, delete and patch
-
-        payload: Payload to send to the server in string format
-
-        validate: Default False, this will retry the request if a server error occurs.
-        """
+    async def __req(self, url: str, session: ClientSession, method: str, payload: str, semaphore: Semaphore, validate: bool = False) -> Union[dict,str]:
+        """Private method\n
+        Returns the request as either a dict or string. Dictionary will always be the preferred return type
+        :url: string (Required) Url to request or post data to/from
+        :method: string (Required) Supported request methods: get, post, put, delete and patch
+        :payload: string (Required) Request payload. Leave blank ('') for no payload
+        :validate: boolean (Optional) Method to retry a request that fails. Default is False\n
+        If response status is (500) Internal Server Error, the request will be retried after 10 seconds"""
         try:
-            async with session.request(method=method, url=url, data=payload, timeout=self.timeout) as response:
-                if response.status in range(200,299):
-                    if response.status == 201:
-                        return({"OK":"Created"})
-                    elif response.status == 202:
-                        bulkId: str = str(response.headers['location'].split("submit/",1)[1])
-                        return(bulkId)
-                    elif response.status == 204:
-                        return({"OK":f"{method}"})
-                    r: dict = await response.json()
-                    return(r)
-                else:
-                    if response.status == 500:
+            async with semaphore:
+                async with session.request(method=method, url=url, data=payload, timeout=self.__TIMEOUT) as response:
+                    if response.status in range(200,299):
+                        if response.status == 202:
+                            try: return(str(response.headers['location'].split("submit/",1)[1]))
+                            except: pass
+                        try: r: dict = await response.json()
+                        except: r: str = await response.text()
+                        if not r: r: dict = {"OK":f"{method}","HEADERS":response.headers}
+                        return(r)
+                    elif response.status == 500:
                         if not validate:
-                            await sleep(10) # Sleep for 10 seconds if response is a server error, then try again.
-                            return(await self.__req(url, session, method, payload, True))
-                        print(f"Server Error: {response.status} Operation: {method} -> {url}")
-                        return({})
-                    try:
-                        r: str = await response.json()
-                        messages: str = ""
-                        # Example: { "ERSResponse": { "operation": "PUT-update by name-networkdevice", "messages": [{ "title": "Resource Initialization Failed: Invalid JSON: Can not deserialize instance of java.util.ArrayList out of START_OBJECT token\n", "type": "ERROR", "code": "Application resource validation exception"}], "link": { "rel": "related", "href": "https://x.x.x.x:9060/ers/config/networkdevice/name/TEST", "type": "application/xml" }}}
-                        for message in r['ERSResponse']['messages']:
-                            messages += f"{message['type']}: {message['title']} - {message['code']}"
-                        print(f"Error: {self.HTTP_ERR_MAP[response.status]} -> Operation: {r['ERSResponse']['operation']} -> {messages}")
-                    except:
-                        r: str = await response.text()
+                            await sleep(10)
+                            return(await self.__req(url,session,method,payload,validate=True))
+                        if payload: self.__LOGGER.info(f"Server Error: {response.status} -> Operation: {method} -> URL: {url} -> Payload:\n{payload}")
+                        else: self.__LOGGER.info(f"Server Error: {response.status} -> Operation: {method} -> URL: {url}")
+                    else:
+                        try: r: dict = await response.json()
+                        except: r: str = await response.text()
                         if not r: r: str = "N/A"
-                        api: str = url.split("/")[5]
-                        print(f"Error: {self.HTTP_ERR_MAP[response.status]} -> Method: {method} -> API: {api} -> Message: {r}")
+                        if payload: self.__LOGGER.info(f"Client Error: {self.__HTTP_ERR_MAP[response.status]} -> Operation: {method} -> URL: {url}\nPayload:\n{payload}\nResponse:\n{r}\n")
+                        else: self.__LOGGER.info(f"Client Error: {self.__HTTP_ERR_MAP[response.status]} -> Operation: {method} -> URL: {url}\nResponse:\n{r}\n")
         except Exception:
-            print(f"General Exception (Func: __req) for URL {url}: Traceback:\n{format_exc()}")
+            if payload: self.__LOGGER.info(f"Exception Error -> Operation: {method} -> URL: {url}\nPayload:\n{payload}\n{format_exc()}")
+            else: self.__LOGGER.info(f"Exception Error -> Operation: {method} -> URL: {url}\n{format_exc()}")
         return({})
 
     async def make_requests(self, req_list: list) -> list:
-        """
-        req_list: list (Required) List of data to be processed
-
-            Structure: method (Required), url (Required), payload (Optional)
-
+        """Returns the results from the requests in req_list in a list of lists format, example: [[response],[response],etc...]
+        :req_list: list (Required) List of lists with requests to be processed
+            Structure: [[method: str (Required), url: str (Required), payload: dict (Optional)],[...]]
             Allowed methods: get, post, put, delete and patch
-
-            Example:
-
+            Payload must be a dictionary, it will be converted to a string
+        req_list Examples:
             [
-                ['GET', 'https://x.x.x.x:9060/ers/config/networkdevice'],
-                ['POST', 'https://x.x.x.x:9060/ers/config/networkdevice', '{\"json\":\"payload\"}'],
-                [...]
-            ]
-        """
-        def check_payload(data: list) -> str:
-            try: return(dumps(data[2]))
-            except: return("")
-        if not req_list:
-            raise Exception("req_list cannot be empty, you must enter data to be processed.")
-        if not req_list[0]:
-            raise Exception("req_list cannot be empty, you must enter data to be processed.")
+                ["GET","www.example.com"],\n
+                ["POST","www.example.com",{"some":"payload"}],\n
+                ["PUT","www.example.com",{"some":"payload"}]
+            ]"""
+        def check_payload(entry: list) -> Union[str,None]:
+            try:
+                if '<?xml version="1.0"' in entry[2]:
+                    return(entry[2])
+                else: return(dumps(entry[2]))
+            except: return(None)
+        if not req_list or not req_list[0]:
+            raise Exception("req_list cannot be empty, you must provide requests to be processed.\n\nThe format is (list of lists):\n    [[method: str (Required), url: str (Required), payload: dict (Optional)],[...]]")
         resultsList: list = []
-        DataPartitions: list = self.returnPartionedList(req_list)
-        async with ClientSession(auth=BasicAuth(self._usr,self._psw), headers=self.headers, connector=TCPConnector(ssl=False)) as session:
-            for partition in DataPartitions: # Process rate_limit amount of requests at the same time and sleep for 1.1 seconds
-                results: list = await gather(*[self.__req(url=data[1], session=session, method=data[0], payload=check_payload(data)) for data in partition], return_exceptions=False)
-                for result in results:
-                    resultsList.append(result)
+        partitions: list = self.returnPartionedList(req_list)
+        semaphore: Semaphore = Semaphore(10)
+        async with ClientSession(auth=self.__AUTH, headers=self.__HEADERS, connector=self.__USE_SSL, timeout=self.__TIMEOUT*2) as session:
+            for partition in partitions:
+                partitionTasks: list = []
+                for entry in partition:
+                    if "get" in entry[0].lower():
+                        partitionTasks.append(create_task(self.__req(entry[1],session,entry[0],check_payload(entry),semaphore)))
+                    else:
+                        result: Union[str,dict] = await self.__req(entry[1],session,entry[0],check_payload(entry),semaphore)
+                        resultsList.append(result)
+                if partitionTasks:
+                    results: list = await gather(*partitionTasks)
+                    for result in results: resultsList.append(result)
                 await sleep(1.1)
         return(resultsList)
