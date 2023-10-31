@@ -173,6 +173,35 @@ if __name__ == "__main__":
 
 You can add as many ids as you like in the list. The program will delete all of them sending 30 delete requests per second.
 
+**Open API Example:**
+
+Supported methods: GET, POST, PUT & DELETE
+
+```
+from asyncio import run
+from NDCiscoISE import NDCiscoISE
+
+async def main():
+    ISE = NDCiscoISE("username", "password", "ise_ip_address")
+    Endpoints = await ISE.ISE_OpenAPI(method="GET",api="/api/v1/endpoint")
+    print(Endpoints)
+
+if __name__ == "__main__":
+    run(main())
+```
+
+Result:
+```
+[{'id': '3ca42fc0-xxxx-xxxx-81bc-12bcda252daf', 'name': 'XX:17:C8:XX:72:XX', 'description': None, 'customAttributes': {}, 'connectedLinks': None, 'mdmAttributes': None, 'groupId': 'bacf2020-xxxx-xxxx-81bc-12bcda252daf', 'identityStore': '', 'identityStoreId': '', 'mac': 'XX:17:C8:XX:72:XX4', 'portalUser': '', 'profileId': '870f23c0-xxxx-xxxx-81bc-12bcda252daf', 'ipAddress': None, 'vendor': None, 'productId': None, 'serialNumber': None, 'deviceType': None, 'softwareRevision': None, 'hardwareRevision': None, 'protocol': None, 'staticGroupAssignment': False, 'staticProfileAssignment': False}]
+```
+
+You need to provide the method and full api as a minimum to get data. You need to provide payloads separately for creating, updating or deleting data in the Open API. You can also provide filtering, sorting and/or paging to the api url.
+
+Full api examples:
+* /api/v1/policy/network-access/policy-set
+* /api/v1/endpoint?page=1&size=100&sort=asc&filter=mac.CONTAINS.B8
+* /api/v1/policy/network-access/identity-stores
+
 This should cover how to use this module.
 
 ## Author
