@@ -56,7 +56,7 @@ class Req():
                     elif response.status == 500:
                         if not validate:
                             await sleep(10)
-                            return(await self.__req(url,session,method,payload,validate=True))
+                            return(await self.__req(url,session,method,payload,semaphore,validate=True))
                         if payload: self.__LOGGER.info(f"Server Error: {response.status} -> Operation: {method} -> URL: {url} -> Payload:\n{payload}")
                         else: self.__LOGGER.info(f"Server Error: {response.status} -> Operation: {method} -> URL: {url}")
                     else:
