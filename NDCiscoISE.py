@@ -4,7 +4,7 @@
 from os.path import splitext, basename
 from re import search
 from General_logger import setup_logger
-from typing import Union
+from typing import Union, Any
 from Req import Req
 
 
@@ -44,10 +44,10 @@ class NDCiscoISE():
             101 -> 200"""
         return(int((-(-int(integer) // 100))*100))
 
-    async def __execute(self, __job: list) -> list:
+    async def __execute(self, __job: list) -> list[Union[list[Any],dict[Any,Any]]]:
         """Private method that will execute requests."""
         __nd = Req(self.__headers, self.__timeout, self.__rate_limit, self.__use_ssl, f"{self.__usr} , {self.__psw}")
-        __result: list = await __nd.make_requests(__job)
+        __result: list[Union[list[Any],dict[Any,Any]]] = await __nd.make_requests(__job)
         return(__result)
 
     ################################################
@@ -58,14 +58,14 @@ class NDCiscoISE():
     # that uses OpenAPI.                           #
     ################################################
 
-    async def ISE_OpenAPI(self, method: str, api: str, payloads: list=[]) -> list:
+    async def ISE_OpenAPI(self, method: str, api: str, payloads: list=[]) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """This function will help utilizing the OpenAPI on the Cisco ISE management nodes.
 
         :method: string (Required) -> The method to use on the OpenAPI, valid values are: GET, POST, PUT, DELETE
         :api: string (Required) -> The OpenAPI to access, example: /api/v1/policy/network-access/policy-set
         :payloads: list (Optional) -> The payloads to use with methods: POST & PUT. This is required with POST & PUT. Example: [{{\"object1\":\"payload\"}}, {{\"object2\":\"payload\"}}, etc.]
-            More help: https://<your ISE IP address>/api/swagger-ui - You must login as Super Admin.
-        NOTE: You can add filtering, sorting and/or paging for specific Open APIs like this:
+        :More help: https://<your ISE IP address>/api/swagger-ui - You must login as Super Admin.
+        :NOTE: You can add filtering, sorting and/or paging for specific Open APIs like this:
             /api/v1/endpoint?page=1&size=100&sort=asc&filter=mac.CONTAINS.B8 (Maximum size is 100 on Cisco ISE)"""
         valid_update_methods: dict = {"POST","PUT"}
         page = None
@@ -122,7 +122,7 @@ class NDCiscoISE():
     # function to return the results correctly.    #
     ################################################
 
-    async def ISE_GET_all_acibindings(self, filter: str = "") -> list:
+    async def ISE_GET_all_acibindings(self, filter: str = "") -> list[Any]:
         """This API allows clients to retrieve all the bindings that were sent to Cisco ISE by ACI or received on ACI from Cisco ISE. The binding information will be identical to the information on ACI bindings page in the Cisco ISE UI.
 
         :filter: (Optional) Filtering will be based on one attribute only, such as ip/sgt/vn/psn/learnedFrom/learnedBy with CONTAINS mode of search.
@@ -137,60 +137,64 @@ class NDCiscoISE():
             else: self.__logger.info(f"{self.__scriptname} <> ISE_GET_all_acibindings: Ignored filter. Acibindings only support the 'CONTAINS' filter mode.")
         results: list = await self.__execute([["GET", url]])
         if results and results[0]:
-            for result in results[0]['ArrayList']:
-                returnResults.append(result)
+            returnResults: list[Any] = [result for result in results[0]['ArrayList']]
         return(returnResults)
 
-    async def ISE_PUT_release_rejected_endpoints(self, ids: list) -> list:
+    async def ISE_PUT_release_rejected_endpoints(self, ids: list) -> bool:
         """This API allows the client to release a rejected endpoint.
         
         :ids: (Required) A list of endpoint ids to release.
         :ids example: [\"endpointId\", \"endpointId\", etc.]"""
+        if not ids:
+            raise Exception("ISE_PUT_release_rejected_endpoints: You must provide a list of endpoint ids to release. Example:  [\"endpointId\", \"endpointId\", etc.]")
         verification: bool = True
         url: str = f"{self.__base_url}config/endpoint/"
-        MultiTask: list = [["PUT", url+i+"/releaserejectedendpoint"] for i in ids]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PUT", url+i+"/releaserejectedendpoint"] for i in ids]
+        results: list[Any] = await self.__execute(MultiTask)
         for result in results:
             if not result:
                 verification: bool = False
                 break
         return(verification) # Returns True if all requests were successful, otherwise False.
 
-    async def ISE_PUT_deregister_endpoints(self, ids: list) -> list:
+    async def ISE_PUT_deregister_endpoints(self, ids: list) -> bool:
         """This API allows the client to de-register an endpoint.
         
         :ids: (Required) A list of endpoint ids to de-register.
         :ids example: [\"endpointId\", \"endpointId\", etc.]"""
+        if not ids:
+            raise Exception("ISE_PUT_deregister_endpoints: You must provide a list of endpoint ids to de-register. Example:  [\"endpointId\", \"endpointId\", etc.]")
         verification: bool = True
         url: str = f"{self.__base_url}config/endpoint/"
-        MultiTask: list = [["PUT", url+i+"/deregister"] for i in ids]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PUT", url+i+"/deregister"] for i in ids]
+        results: list[Any] = await self.__execute(MultiTask)
         for result in results:
             if not result:
                 verification: bool = False
                 break
         return(verification) # Returns True if all requests were successful, otherwise False.
 
-    async def ISE_GET_rejected_endpoints(self) -> list:
+    async def ISE_GET_rejected_endpoints(self) -> Union[list,list[dict[str,Any]]]:
         """This API allows the client to get the rejected endpoints."""
         returnResults: list = []
         url: str = f"{self.__base_url}config/endpoint/getrejectedendpoints"
-        results: list = await self.__execute([["GET", url]])
+        results: list[list[Any]] = await self.__execute([["GET", url]])
         if results and results[0]:
-            for result in results[0]['OperationResult']['resultValue']:
-                returnResults.append(result)
+            returnResults: list[dict[str,Any]] = [result for result in results[0]['OperationResult']['resultValue']]
         return(returnResults) # Example: [{'value': '2', 'name': 'Rejected EndPoint Count'}, {'value': '68:3B:78:D9:3C:00', 'name': 'EndPoint'}]
 
-    async def ISE_PUT_register_endpoints(self, endpointpayloads: list) -> list:
+    async def ISE_PUT_register_endpoints(self, endpointpayloads: list) -> bool:
         """This API allows the client to register an endpoint.
         
         :endpointpayloads: (Required) A list of endpoint payloads to register.
         :endpointpayloads example: [{\"endpoint1\": \"payload\"}, {\"endpoint2\": \"payload\"}, etc.]
         :NOTE: Full endpoint payload is required when registering. See more information here regarding payloads: https://developer.cisco.com/docs/identity-services-engine/latest/#!endpoint"""
+        if not endpointpayloads:
+            raise Exception("ISE_PUT_register_endpoints: You must provide a list of endpoint payloads to register. Example: [{\"endpoint1\": \"payload\"}, {\"endpoint2\": \"payload\"}, etc.]")
         verification: bool = True
         url: str = f"{self.__base_url}config/endpoint/register"
-        MultiTask: list = [["PUT", url, i] for i in endpointpayloads]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PUT", url, i] for i in endpointpayloads]
+        results: list[Any] = await self.__execute(MultiTask)
         for result in results:
             if not result:
                 verification: bool = False
@@ -217,7 +221,7 @@ class NDCiscoISE():
     #       when using post, put and patch methods.#
     ################################################
 
-    async def ISE_DELETE_api_names(self, api: str, names: list) -> list:
+    async def ISE_DELETE_api_names(self, api: str, names: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Deletes objects from the api subtree and object names in the names list provided.
         
         :names: (Required) List of object names to delete, example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]
@@ -229,18 +233,15 @@ class NDCiscoISE():
             raise Exception("ISE_GET_api_names: You must provide a list of object names to be deleted. Example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
         if not isinstance(names, list):
             raise Exception("ISE_GET_api_names: Parameter names must be a list of object names in format: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
-        if not len(names) > 0:
-            raise Exception("ISE_GET_api_names: Parameter names cannot be empty, you must provide a list of object names to be deleted. Example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/name/"
-        MultiTask: list = [["DELETE", url+i] for i in names]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["DELETE", url+i] for i in names]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_GET_api_names(self, api: str, names: list) -> list:
+    async def ISE_GET_api_names(self, api: str, names: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Returns object details from the api subtree and object names in the names list provided.
         
         :names: (Required) List of object names to get details about, example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]
@@ -252,18 +253,15 @@ class NDCiscoISE():
             raise Exception("ISE_GET_api_names: You must provide a list of object names to be processed. Example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
         if not isinstance(names, list):
             raise Exception("ISE_GET_api_names: Parameter names must be a list of object names in format: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
-        if not len(names) > 0:
-            raise Exception("ISE_GET_api_names: Parameter names cannot be empty, you must provide a list of object names to be processed. Example: [\"ISE_EST_Local_Host\", \"Device2\", etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/name/"
-        MultiTask: list = [["GET", url+i] for i in names]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["GET", url+i] for i in names]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_PATCH_api_names(self, api: str, namesandpayload: list) -> list:
+    async def ISE_PATCH_api_names(self, api: str, namesandpayload: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Updates object details from the api subtree and object names in the names list provided.
 
         :namesandpayload: (Required) List of object names and payloads to update details on, example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]
@@ -281,18 +279,15 @@ class NDCiscoISE():
             raise Exception("ISE_PATCH_api_names: You must provide a list of object names and payloads to be updated. Example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
         if not isinstance(namesandpayload, list):
             raise Exception("ISE_PATCH_api_names: Parameter names must be a list of object names and payloads in format: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
-        if not len(namesandpayload) > 0:
-            raise Exception("ISE_PATCH_api_names: Parameter names cannot be empty, you must provide a list of object names and payloads to be updated. Example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/name/"
-        MultiTask: list = [["PATCH", url+i[0], i[1]] for i in namesandpayload]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PATCH", url+i[0], i[1]] for i in namesandpayload]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_PUT_api_names(self, api: str, namesandpayload: list) -> list:
+    async def ISE_PUT_api_names(self, api: str, namesandpayload: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Updates object details from the api subtree and object names in the names list provided.
         
         :namesandpayload: (Required) List of object names and payloads to update details on, example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]
@@ -305,18 +300,15 @@ class NDCiscoISE():
             raise Exception("ISE_PUT_api_names: You must provide a list of object names and payloads to be updated. Example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
         if not isinstance(namesandpayload, list):
             raise Exception("ISE_PUT_api_names: Parameter names must be a list of object names and payloads in format: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
-        if not len(namesandpayload) > 0:
-            raise Exception("ISE_PUT_api_names: Parameter names cannot be empty, you must provide a list of object names and payloads to be updated. Example: [[\"ISE_EST_Local_Host\", {\"object\": \"payload\"}], [\"Device2\", {\"object\": \"payload\"}], etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/name/"
-        MultiTask: list = [["PUT", url+i[0], i[1]] for i in namesandpayload]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PUT", url+i[0], i[1]] for i in namesandpayload]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_DELETE_api_ids(self, api: str, ids: list) -> list:
+    async def ISE_DELETE_api_ids(self, api: str, ids: list) -> bool:
         """Deletes objects from the api subtree and IDs provided in the ids list.
 
         :ids: list (Required) -> List of object ids to delete, example: [\"object id\", \"object id\", etc]
@@ -328,19 +320,17 @@ class NDCiscoISE():
             raise Exception("ISE_DELETE_api_ids: You must provide a list of object ids to be deleted. Example: [\"object id\", \"object id\", etc]")
         if not isinstance(ids, list):
             raise Exception("ISE_DELETE_api_ids: Parameter ids must be a list of object ids in format: [\"object id\", \"object id\", etc]")
-        if not len(ids) > 0:
-            raise Exception("ISE_DELETE_api_ids: Parameter ids cannot be empty, you must provide a list of object ids to be deleted. Example: [\"object id\", \"object id\", etc]")
         verification: bool = True
         url: str = f"{self.__base_url}config/{api}/"
-        MultiTask: list = [["DELETE", url+i] for i in ids]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["DELETE", url+i] for i in ids]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         for result in results:
             if not result:
                 verification: bool = False
                 break
         return(verification)
 
-    async def ISE_GET_api_ids(self, api: str, ids: list) -> list:
+    async def ISE_GET_api_ids(self, api: str, ids: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Returns object details from the api subtree and object ids provided in the ids list.
 
         :ids: list (Required) -> List of object ids to retrieve, example: [\"object id\", \"object id\", etc]
@@ -352,18 +342,15 @@ class NDCiscoISE():
             raise Exception("ISE_GET_api_ids: You must provide a list of object ids to be processed. Example: [\"object id\", \"object id\", etc]")
         if not isinstance(ids, list):
             raise Exception("ISE_GET_api_ids: Parameter ids must be a list of object ids in format: [\"object id\", \"object id\", etc]")
-        if not len(ids) > 0:
-            raise Exception("ISE_GET_api_ids: Parameter ids cannot be empty, you must provide a list of object ids to be processed. Example: [\"object id\", \"object id\", etc]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/"
-        MultiTask: list = [["GET", url+i] for i in ids]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["GET", url+i] for i in ids]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_PATCH_api_ids(self, api: str, idsandpayload: list) -> list:
+    async def ISE_PATCH_api_ids(self, api: str, idsandpayload: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Updates objects on an api subtree with the payloads provided for each object id.
 
         :idsandpayload: lists of list (Required) -> Must be a list of ids and payloads to be processed. Payload only needs to contain the values that are needed to be changed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]
@@ -376,24 +363,19 @@ class NDCiscoISE():
         :api examples: networkdevice, endpoint, networkdevicegroup etc."""
         if not api:
             raise Exception("ISE_PATCH_api_ids: You must provide the api/subtree to update data to, example: networkdevice, endpoint, networkdevicegroup, etc.")
-        if not idsandpayload:
+        if not idsandpayload and not idsandpayload[0]:
             raise Exception("ISE_PATCH_api_ids: You must provide a list of ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
         if not isinstance(idsandpayload, list):
             raise Exception("ISE_PATCH_api_ids: Parameter idsandpayload must be a list of ids and payloads. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
-        if not len(idsandpayload) > 0:
-            raise Exception("ISE_PATCH_api_ids: Parameter idsandpayload cannot be empty, you must provide a list of ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
-        if not idsandpayload[0]:
-            raise Exception("ISE_PATCH_api_ids: You must provide a list of lists with ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/"
-        MultiTask: list = [["PATCH", url+i[0], i[1]] for i in idsandpayload]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PATCH", url+i[0], i[1]] for i in idsandpayload]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_PUT_api_ids(self, api: str, idsandpayload: list) -> list:
+    async def ISE_PUT_api_ids(self, api: str, idsandpayload: list) -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Updates objects on an api subtree with the payloads provided for each object id.
 
         :idsandpayload: lists of list (Required) -> Must be a list of ids and full payload to be processed.
@@ -403,24 +385,19 @@ class NDCiscoISE():
         :api examples: networkdevice, endpoint, networkdevicegroup etc."""
         if not api:
             raise Exception("ISE_PUT_api_ids: You must provide the api/subtree to update data to, example: networkdevice, endpoint, networkdevicegroup, etc.")
-        if not idsandpayload:
+        if not idsandpayload and not idsandpayload[0]:
             raise Exception("ISE_PUT_api_ids: You must provide a list of ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
         if not isinstance(idsandpayload, list):
             raise Exception("ISE_PUT_api_ids: Parameter idsandpayload must be a list of ids and payloads. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
-        if not len(idsandpayload) > 0:
-            raise Exception("ISE_PUT_api_ids: Parameter idsandpayload cannot be empty, you must provide a list of ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
-        if not idsandpayload[0]:
-            raise Exception("ISE_PUT_api_ids: You must provide a list of lists with ids and payloads to be processed. Example: [[\"objectId\", {\"object1\":\"payload\"}], [\"objectId\", {\"object2\":\"payload\"}], etc.]")
         returnResults: list = []
         url: str = f"{self.__base_url}config/{api}/"
-        MultiTask: list = [["PUT", url+i[0], i[1]] for i in idsandpayload]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["PUT", url+i[0], i[1]] for i in idsandpayload]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         if results:
-            for result in results:
-                returnResults.append(result)
+            returnResults: list[Union[list[Any],dict[Any,Any]]] = [result for result in results]
         return(returnResults)
 
-    async def ISE_GET_api(self, api: str, filter: str = "", sort: str = "") -> list:
+    async def ISE_GET_api(self, api: str, filter: str = "", sort: str = "") -> Union[list,list[Union[list[Any],dict[Any,Any]]]]:
         """Get all objects from the api subtree provided. This function will automatically check how many total objects are available and run through all pages to get all data
 
         :api: string (Required) -> The API config/* subtree you want to get data from
@@ -440,7 +417,7 @@ class NDCiscoISE():
             url: str = f"{self.__base_url}config/{api}?{filter}&size={self.__maxresults}&page={page}"
         if sort:
             url: str = f"{url}&{sort}"
-        result: list = await self.__execute([["GET", url]])
+        result: list[Union[list[Any],dict[Any,Any]]] = await self.__execute([["GET", url]])
         if result and result[0]:
             if "SearchResult" in result[0]:
                 total_entries: int = result[0]['SearchResult']['total']
@@ -453,7 +430,7 @@ class NDCiscoISE():
                         page += 1
                         url: str = url.replace(f"page={page-1}", f"page={page}")
                         MultiTask.append(["GET", url])
-                    results: list = await self.__execute(MultiTask)
+                    results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
                     if results and results[0]:
                         for entries in results:
                             for device in entries['SearchResult']['resources']:
@@ -477,19 +454,17 @@ class NDCiscoISE():
             raise Exception("ISE_POST_api: You must provide a list of object payloads to be processed. Example: [{\"object1\":\"payload\"}, {\"object2\":\"payload\"}, etc.]")
         if not isinstance(objects, list):
             raise Exception("ISE_POST_api: Parameter objects must be a list of object payloads in json/dictionary format: [{\"object1\":\"payload\"}, {\"object2\":\"payload\"}, etc.]")
-        if not len(objects) > 0:
-            raise Exception("ISE_POST_api: Parameter objects cannot be empty, you must provide a list of object payloads to be processed. Example: [{\"object1\":\"payload\"}, {\"object2\":\"payload\"}, etc.]")
         verification: bool = True
         url: str = f"{self.__base_url}config/{api}"
-        MultiTask: list = [["POST", url, o] for o in objects]
-        results: list = await self.__execute(MultiTask)
+        MultiTask: list[list[str]] = [["POST", url, o] for o in objects]
+        results: list[Union[list[Any],dict[Any,Any]]] = await self.__execute(MultiTask)
         for result in results:
             if not result:
                 verification: bool = False
                 break
         return(verification) # Returns True if all requests were successful, otherwise False.
 
-    async def ISE_GET_versioninfo(self, api: str) -> dict:
+    async def ISE_GET_versioninfo(self, api: str) -> dict[str,Any]:
         """Returns current and supported API versions for the api subtree provided.
 
         :api: string (Required) -> The API config/* subtree you want to get versioninfo from.
@@ -516,7 +491,7 @@ class NDCiscoISE():
         result: list = await self.__execute([["PUT", url, bulkpayload]])
         return(result[0]) # Returns the bulkId after the request is submitted. Example: 1615791703003
 
-    async def ISE_GET_bulk_bulkid(self, api: str, bulkId: str) -> Union[dict,str]:
+    async def ISE_GET_bulk_bulkid(self, api: str, bulkId: str) -> dict[str,Any]:
         """Returns bulk status from the api subtree and bulkid provided.
 
         :bulkId: string (Required) -> The ID of the bulk request to check status on.
