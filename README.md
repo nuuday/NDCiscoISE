@@ -12,6 +12,11 @@ There are some specific API requests, that will require its own function to get,
 * Status: This is the first version released.
 * Validated on Cisco ISE 3.1 & 3.2
 
+**18-03-2025 Update:**
+1. Added better typing (probably not perfect).
+2. Few bug fixes.
+3. Fixed some descriptions and made them look better.
+
 **31-10-2023 Update:**
 After writing a program for a customer I decided to use my own program. In this project I found a lot of errors and bugs in the code I had made. Therefore I've changed a lot and added additional content and features. Here are a few mentions:
 1. Rewrote Req.py to better support the program.
